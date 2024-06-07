@@ -1,0 +1,71 @@
+version: "3"
+
+services:
+  spreaddash:
+    container_name: spreaddash
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    ports:
+      - "8021:8021"
+    volumes:
+      - .:/spread
+    command: >
+      sh -c "python manage.py wait_for_db && 
+             python manage.py migrate &&
+             python manage.py runserver 0.0.0.0:8021"
+    environment:
+      - DB_HOST=db
+      - DB_NAME=spreaddash
+      - DB_USER=postgres
+      - DB_PASS=testpassword
+    depends_on:
+      - db
+      - redis
+      - rabbitmq
+
+  flower:
+    image: mher/flower
+    container_name: flower-spreaddash
+    command: celery flower
+    environment:
+      - CELERY_BROKER_URL=amqp://guest:guest@rabbitmq:5672//
+      - FLOWER_PORT=5558
+    ports:
+      - 5558:5558
+    depends_on:
+      - rabbitmq
+
+  db:
+    container_name: spreaddash_postgres
+    image: postgres:10-alpine
+    command: postgres -c shared_buffers=1024MB -c max_connections=600
+    environment:
+      - POSTGRES_DB=spreaddash
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=testpassword
+    volumes:
+      - db:/var/lib/postgresql/data
+
+  redis:
+    container_name: spreaddash_cache
+    image: redis
+    command: --port 6313
+    ports:
+      - "6313:6313"
+    expose:
+      - "6313"
+
+  rabbitmq:
+    container_name: rabbitmqspreaddash
+    image: rabbitmq:3-management
+    ports:
+      - "5675:5672"
+      - "15675:15672"
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+
+volumes:
+  db:
+  flower_data:
