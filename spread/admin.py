@@ -1,3 +1,6 @@
 from django.contrib import admin
 
-# Register your models here.
+from spread.models import Wallet, SpreadTraderBlacklist
+
+admin.site.register(Wallet)
+admin.site.register(SpreadTraderBlacklist)
