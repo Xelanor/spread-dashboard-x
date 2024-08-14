@@ -18,7 +18,6 @@ def parse_response(res, req_type=None):
 def request(method, host, url, params=None):
     url = "{}{}".format(host, url)
     res = requests.request(method, url, json=params)
-    print(res)
     return parse_response(res)
 
 
