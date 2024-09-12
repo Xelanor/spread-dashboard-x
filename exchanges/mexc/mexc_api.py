@@ -43,6 +43,38 @@ def get_mexc_depth(ticker):
     return asks, bids
 
 
+def get_mexc_klines(ticker, age=False):
+    url = "/api/v3/klines"
+
+    ticker = f"{ticker.split('/')[0]}{ticker.split('/')[1]}"
+
+    if age:
+        params = {"symbol": ticker, "interval": "1d", "limit": 360}
+
+    res = request("GET", url, params=params)
+    klines = []
+
+    for kline in res:
+        date = kline[0]
+        _open = float(kline[1])
+        high = float(kline[2])
+        low = float(kline[3])
+        close = float(kline[4])
+        volume = round(float(kline[7]), 2)
+        klines.append(
+            {
+                "date": date,
+                "open": _open,
+                "high": high,
+                "low": low,
+                "close": close,
+                "volume": volume,
+            }
+        )
+
+    return klines
+
+
 def get_allowed_symbols():
     url = "/api/v3/defaultSymbols"
 

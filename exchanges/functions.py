@@ -21,6 +21,7 @@ exchange_functions = {
         "tickers": mexc_api.get_mexc_tickers,
         "depth": mexc_api.get_mexc_depth,
         "allowed": mexc_api.get_allowed_symbols,
+        "klines": mexc_api.get_mexc_klines,
     },
     "Bitmart": {
         "tickers": bitmart_api.get_bitmart_tickers,

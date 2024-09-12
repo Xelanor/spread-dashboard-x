@@ -50,3 +50,28 @@ class SpreadTraderBlacklist(models.Model):
 
     def __str__(self):
         return f"{self.exchange} - {self.ticker}"
+
+
+class FinderScore(models.Model):
+    """SpreadSnapshot model class"""
+
+    exchange = models.CharField(max_length=255)
+    ticker = models.CharField(max_length=255)
+    score = models.FloatField()
+    details = models.TextField(blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.exchange} - {self.ticker} - {self.score}"
+
+
+class HistoricSpread(models.Model):
+    """Historic Spread model class"""
+
+    exchange = models.CharField(max_length=255)
+    ticker = models.CharField(max_length=255)
+    spread = models.FloatField()
+    created_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.exchange} - {self.ticker} - {self.spread}"
