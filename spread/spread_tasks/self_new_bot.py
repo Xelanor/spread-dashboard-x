@@ -4,6 +4,7 @@ import traceback
 from datetime import timedelta
 from time import sleep
 import statistics
+import random
 
 from app.celery import app
 from django.core.cache import cache
@@ -15,8 +16,26 @@ from dashboard.utils import request, async_maker_server_request
 from dashboard.models import Server
 from spread.models import FinderScore, HistoricSpread
 from exchanges.functions import exchange_functions
+from exchanges.mexc.mexc_api import get_allowed_symbols as mexc_allowed_symbols
+from spread.spread_tasks.calculate_scores import calculate_historical_data
 
 logger = logging.getLogger()
+
+
+def add_new_spread_bot(ticker, exchange, server):
+    db_server = Server.objects.get(number=server)
+    host = db_server.link
+    url = "/spread/add-new-bot"
+    res = request(
+        "POST",
+        host,
+        url,
+        {
+            "ticker": ticker,
+            "exchange": exchange,
+        },
+    )
+    return True
 
 
 @app.task
@@ -29,6 +48,12 @@ def self_new_bot():
     if not (bots and tickers_data):
         logger.error("Bot details or tickers data not found in cache")
         return False
+
+    servers = list(Server.objects.filter().values())
+    url = "/spread/historical"
+    old_bots_data = asyncio.run(async_maker_server_request(servers, "GET", url))
+
+    historical = calculate_historical_data(old_bots_data)
 
     for exchange in exchanges:
         added_coin_count = 0
@@ -47,14 +72,34 @@ def self_new_bot():
 
                 active_coin_counts[bot["settings"]["server"]] -= 1
 
-        # TODO: Default symbol çek
+        # * Default symbol çek
+        allowed_symbols = None
+        if exchange == "Mexc":
+            allowed_symbols = mexc_allowed_symbols()
 
         tickers = tickers_data.get(exchange, {})
-        # TODO: Gerekirse bunları shuffle yap
 
-        for ticker, ticker_data in tickers.items():
-            # TODO: Geçmiş çalışma verisini çek son 1 haftada çalıştıysa ekleme
-            # TODO: Default symbolden kontrol et
+        # * Gerekirse bunları shuffle yap
+        ticker_keys = list(tickers.keys())
+        random.shuffle(ticker_keys)
+
+        for ticker in ticker_keys:
+            # * Geçmiş çalışma verisini çek son 1 haftada çalıştıysa ekleme
+            old_bot_data = historical.get(ticker, {}).get(exchange, {})
+            last_transaction = old_bot_data.get("last_transaction", None)
+            if last_transaction and last_transaction > now() - timedelta(days=7):
+                continue
+
+            tick = ticker.split("/")[0]
+            mexc_ticker = f"{tick}USDT"
+
+            # * Default symbolden kontrol et
+            if (
+                exchange == "Mexc"
+                and allowed_symbols
+                and mexc_ticker not in allowed_symbols
+            ):
+                continue
 
             # * Bizde olan coin filtresi
             if f"{ticker}-{exchange}" in running_bots:
@@ -93,7 +138,7 @@ def self_new_bot():
                 continue
 
             try:
-                add_new_spread_bot()
+                add_new_spread_bot(ticker, exchange, max_key)
                 active_coin_counts[max_key] -= 1
                 added_coin_count += 1
                 logger.info(
